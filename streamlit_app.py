@@ -44,7 +44,6 @@ st.title("Word Cloud Generator")
 st.subheader("📁 Upload a pdf, docx or text file to generate a word cloud")
 
 uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
-st.set_option('deprecation.showPyplotGlobalUse', False)
 
 if uploaded_file:
     file_details = {"FileName": uploaded_file.name, "FileType": uploaded_file.type, "FileSize": uploaded_file.size}
@@ -61,7 +60,7 @@ if uploaded_file:
         st.error("File type not supported. Please upload a txt, pdf or docx file.")
         st.stop()
 
-    # Generate word count table
+    # Generate word count table from original text
     words = text.split()
     word_count = pd.DataFrame({'Word': words}).groupby('Word').size().reset_index(name='Count').sort_values('Count', ascending=False)
 
@@ -75,39 +74,41 @@ if uploaded_file:
     else:
         all_stopwords = set(additional_stopwords)
 
-    text = filter_stopwords(text, all_stopwords)
+    # Filter text for word cloud generation
+    filtered_text = filter_stopwords(text, all_stopwords)
 
-    if text:
+    if filtered_text:
         # Word Cloud dimensions
         width = st.sidebar.slider("Select Word Cloud Width", 400, 2000, 1200, 50)
         height = st.sidebar.slider("Select Word Cloud Height", 200, 2000, 800, 50)
 
         # Generate wordcloud
         st.subheader("Generated Word Cloud")
-        fig, ax = plt.subplots(figsize=(width/100, height/100))  # Convert pixels to inches for figsize
-        wordcloud_img = WordCloud(width=width, height=height, background_color='white', max_words=200, contour_width=3, contour_color='steelblue').generate(text)
+        fig, ax = plt.subplots(figsize=(width/100, height/100))
+        wordcloud_img = WordCloud(width=width, height=height, background_color='white', 
+                                   max_words=200, contour_width=3, 
+                                   contour_color='steelblue').generate(filtered_text)
         ax.imshow(wordcloud_img, interpolation='bilinear')
         ax.axis('off')
+        st.pyplot(fig)
 
         # Save plot functionality
         format_ = st.selectbox("Select file format to save the plot", ["png", "jpeg", "svg", "pdf"])
         resolution = st.slider("Select Resolution", 100, 500, 300, 50)
-        # Generate word count table
-        st.subheader("Word Count Table")
-        words = text.split()
-        word_count = pd.DataFrame({'Word': words}).groupby('Word').size().reset_index(name='Count').sort_values('Count', ascending=False)
-        st.write(word_count)
-    st.pyplot(fig)
-    if st.button(f"Save as {format_}"):
-        buffered = BytesIO()
-        plt.savefig(buffered, format=format_, dpi=resolution)
-        st.markdown(get_image_download_link(buffered, format_), unsafe_allow_html=True)
-    
+        
+        if st.button(f"Save as {format_}"):
+            buffered = BytesIO()
+            plt.savefig(buffered, format=format_, dpi=resolution)
+            st.markdown(get_image_download_link(buffered, format_), unsafe_allow_html=True)
 
-    
-    
-    st.subheader("Word Count Table")
-    st.write(word_count)
-    # Provide download link for table
-    if st.button('Download Word Count Table as CSV'):
-        st.markdown(get_table_download_link(word_count, "word_count.csv", "Click Here to Download"), unsafe_allow_html=True)
+        # Generate word count table from filtered text
+        st.subheader("Word Count Table")
+        filtered_words = filtered_text.split()
+        filtered_word_count = pd.DataFrame({'Word': filtered_words}).groupby('Word').size().reset_index(name='Count').sort_values('Count', ascending=False)
+        st.write(filtered_word_count)
+        
+        # Provide download link for table
+        if st.button('Download Word Count Table as CSV'):
+            st.markdown(get_table_download_link(filtered_word_count, "word_count.csv", "Click Here to Download"), unsafe_allow_html=True)
+    else:
+        st.warning("All words were filtered out. Please adjust your stopwords selection.")
